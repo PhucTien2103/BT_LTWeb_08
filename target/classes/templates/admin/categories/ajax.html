@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{admin/layout_admin.html}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="author" content="23110357" />
+  <title>Category - AJAX</title>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+  <style>
+    .table-responsive { overflow-x: auto; }
+    .thumb { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
+  </style>
+</head>
+<body>
+<section class="row" layout:fragment="content">
+  <div class="col mt-4">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">Category (AJAX)</h2>
+        <button class="btn btn-success" onclick="showCreateNewCategoryModal()">
+          <i class="fas fa-plus me-2"></i>Thêm Category (Ajax)
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div id="alertBox" class="alert d-none" role="alert"></div>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+            <tr>
+              <th style="width:120px;">ID</th>
+              <th style="width:120px;">Icon</th>
+              <th>Name</th>
+              <th style="width:140px;">Actions</th>
+            </tr>
+            </thead>
+            <tbody id="cateTableBody"><!-- rows được nạp bằng Ajax --></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Modal: Add -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="addCategory" class="modal-content" onsubmit="return false;" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Category</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" ></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Category Name</label>
+          <input type="text" class="form-control" id="new_categoryname" name="categoryName" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Icon</label>
+          <input type="file" class="form-control" id="new_icon" name="icon" accept="image/*">
+          <div class="form-text">Có thể bỏ trống.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Add</button>
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Update -->
+<div class="modal fade" id="updateCategoryInfoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="updateCategory" class="modal-content" onsubmit="return false;" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title">Update Category</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" ></button>
+      </div>
+      <div class="modal-body">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Current</strong></div>
+          <div class="card-body">
+            <p id="updateCategoryInfoModalId" class="mb-1"></p>
+            <p id="updateCategoryInfoModalName" class="mb-1"></p>
+            <div id="updateCategoryInfoModalIconWrap"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Category Name</label>
+          <input type="text" class="form-control" id="categoryName_up" name="categoryName" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Icon (upload mới nếu muốn thay)</label>
+          <input type="file" class="form-control" id="icon_up" name="icon" accept="image/*">
+        </div>
+        <input type="hidden" id="categoryId_up" name="categoryId">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Cập nhật</button>
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  // Helpers
+  function showAlert(type, text) {
+    const box = document.getElementById('alertBox');
+    box.className = 'alert alert-' + type;
+    box.textContent = text;
+    box.classList.remove('d-none');
+    setTimeout(()=> box.classList.add('d-none'), 2500);
+  }
+
+  function imgSrc(icon) {
+    if (!icon) return '';
+    // Bạn đã map /uploads/** -> file:uploads/ trong WebConfig
+    return contextPath + '/uploads/' + icon;
+  }
+
+  // Load table
+  function loadCategories() {
+    $.getJSON(contextPath + '/api/category', function (json) {
+      const tbody = $('#cateTableBody');
+      tbody.empty();
+      (json || []).forEach(c => {
+        const row = `
+          <tr>
+            <td>${c.categoryId ?? ''}</td>
+            <td>${c.icon ? `<img class="thumb" src="${imgSrc(c.icon)}" alt="">` : ''}</td>
+            <td>${c.categoryName ?? ''}</td>
+            <td>
+              <button class="btn btn-warning btn-sm me-1" 
+                      onclick="openEdit(${c.categoryId}, '${(c.categoryName||'').replace(/'/g,"&#39;")}', '${(c.icon||'').replace(/'/g,"&#39;")}')">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.categoryId})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>`;
+        tbody.append(row);
+      });
+    }).fail(() => showAlert('danger', 'Không tải được danh sách.'));
+  }
+
+  // Add
+  function showCreateNewCategoryModal(){
+    $('#new_categoryname').val('');
+    $('#new_icon').val('');
+    new bootstrap.Modal(document.getElementById('createCategoryModal')).show();
+  }
+
+  $('form#addCategory').on('submit', function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    $.ajax({
+      url: contextPath + '/api/category/addCategory',
+      type: 'POST',
+      dataType: 'json',
+      data: formData,
+      cache: false, contentType: false, processData: false
+    }).done(res => {
+      showAlert(res?.status ? 'success' : 'warning', res?.message || 'Thêm xong');
+      $('#createCategoryModal').modal('hide');
+      loadCategories();
+    }).fail(() => showAlert('danger', 'Thêm thất bại'));
+  });
+
+  // Edit (open modal)
+  function openEdit(id, name, icon){
+    $('#updateCategoryInfoModalId').text('Category ID: ' + id);
+    $('#updateCategoryInfoModalName').text('Category Name: ' + name);
+    $('#updateCategoryInfoModalIconWrap').html(icon ? `<img class="thumb" src="${imgSrc(icon)}">` : '(no icon)');
+    $('#categoryId_up').val(id);
+    $('#categoryName_up').val(name);
+    new bootstrap.Modal(document.getElementById('updateCategoryInfoModal')).show();
+  }
+
+  // Update
+  $('form#updateCategory').on('submit', function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    $.ajax({
+      url: contextPath + '/api/category/updateCategory',
+      type: 'PUT',
+      dataType: 'json',
+      data: formData,
+      cache: false, contentType: false, processData: false
+    }).done(res => {
+      showAlert(res?.status ? 'success' : 'warning', res?.message || 'Cập nhật xong');
+      $('#updateCategoryInfoModal').modal('hide');
+      loadCategories();
+    }).fail(() => showAlert('danger', 'Cập nhật thất bại'));
+  });
+
+  // Delete
+  function deleteCategory(id){
+    if(!confirm('Bạn có chắc muốn xóa?')) return;
+    $.ajax({
+      url: contextPath + '/api/category/deleteCategory',
+      type: 'DELETE',
+      dataType: 'json',
+      data: { categoryId: id }
+    }).done(res => {
+      showAlert(res?.status ? 'success' : 'warning', res?.message || 'Đã xóa');
+      loadCategories();
+    }).fail(() => showAlert('danger', 'Xóa thất bại'));
+  }
+
+  // Init
+  $(document).ready(loadCategories);
+</script>
+</body>
+</html>
